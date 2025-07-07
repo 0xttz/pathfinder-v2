@@ -19,8 +19,9 @@ realms_store = {}
 class ChatRequest(BaseModel):
     message: str
     chat_id: Optional[str] = None
+    realm_id: Optional[str] = None
 
-async def gemini_llm_streamer(message: str, chat_id: str):
+async def gemini_llm_streamer(message: str, chat_id: str, realm_id: Optional[str] = None):
     """Streams a response from the Gemini API and saves messages."""
     # 1. Fetch chat history
     messages_res = supabase_client.from_("messages").select("role, content").eq("chat_id", chat_id).order("created_at").execute()
@@ -43,8 +44,14 @@ async def gemini_llm_streamer(message: str, chat_id: str):
     # Add the new user message to the history for the API call
     history.append({"role": "user", "parts": [message]})
 
+    system_prompt = None
+    if realm_id:
+        realm_res = supabase_client.from_("realms").select("system_prompt").eq("id", realm_id).single().execute()
+        if realm_res.data and realm_res.data.get("system_prompt"):
+            system_prompt = realm_res.data["system_prompt"]
+
     # KEEP THIS AS 2.5-flash !!!!
-    model = genai.GenerativeModel('gemini-2.5-flash')
+    model = genai.GenerativeModel('gemini-2.5-flash', system_instruction=system_prompt)
     
     # 3. Send the entire conversation history to the model
     response = await model.generate_content_async(history, stream=True)
@@ -66,21 +73,25 @@ async def gemini_llm_streamer(message: str, chat_id: str):
 async def stream_chat(chat_request: ChatRequest):
     """Streams a chat response back to the client."""
     chat_id = chat_request.chat_id
+    realm_id = chat_request.realm_id
+
     if not chat_id:
         # Create a new chat session
         new_chat_id = str(uuid.uuid4())
         title = chat_request.message[:50] # Simple title from first 50 chars
-        insert_res = supabase_client.from_("chats").insert({
-            "id": new_chat_id,
-            "title": title
-        }).execute()
+        
+        chat_data = { "id": new_chat_id, "title": title }
+        if realm_id:
+            chat_data["realm_id"] = realm_id
+
+        insert_res = supabase_client.from_("chats").insert(chat_data).execute()
         if not insert_res.data:
              raise HTTPException(status_code=500, detail="Failed to create new chat session.")
         chat_id = insert_res.data[0]['id']
 
 
     response = StreamingResponse(
-        gemini_llm_streamer(chat_request.message, chat_id), 
+        gemini_llm_streamer(chat_request.message, chat_id, realm_id), 
         media_type="text/event-stream"
     )
     response.headers["X-Chat-Id"] = chat_id

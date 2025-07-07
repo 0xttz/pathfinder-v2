@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
-import { Send, Trash2 } from "lucide-react";
+import { Send, Trash2, Shield } from "lucide-react";
 import { MarkdownRenderer } from "../components/MarkdownRenderer";
 import { LoadingSpinner } from "../components/LoadingSpinner";
+import type { Realm } from "./RealmsPage"; // Assuming RealmsPage exports Realm interface
 
 interface Chat {
   id: string;
   title: string;
+  realm_id: string | null;
 }
 
 interface Message {
@@ -68,6 +70,14 @@ export function ChatPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [chats, setChats] = useState<Chat[]>([]);
   const [editingTitle, setEditingTitle] = useState(false);
+  const [realms, setRealms] = useState<Realm[]>([]);
+  const [selectedRealmId, setSelectedRealmId] = useState<string | null>(null);
+
+  const fetchRealms = useCallback(async () => {
+    const response = await fetch("http://localhost:8000/realms");
+    const data = await response.json();
+    setRealms(data);
+  }, []);
 
   const fetchChats = useCallback(async () => {
     const response = await fetch("http://localhost:8000/chats");
@@ -77,7 +87,8 @@ export function ChatPage() {
 
   useEffect(() => {
     fetchChats();
-  }, [fetchChats]);
+    fetchRealms();
+  }, [fetchChats, fetchRealms]);
 
   const fetchMessages = async (id: string) => {
     const response = await fetch(`http://localhost:8000/chats/${id}/messages`);
@@ -142,10 +153,19 @@ export function ChatPage() {
     const userMessage: Message = { role: "user", content: messageToSend };
     setMessages((prev) => [...prev, userMessage]);
   
+    const requestBody: { message: string; chat_id: string | null; realm_id?: string | null } = {
+      message: messageToSend,
+      chat_id: chatId,
+    };
+
+    if (selectedRealmId && !chatId) {
+      requestBody.realm_id = selectedRealmId;
+    }
+
     const response = await fetch("http://localhost:8000/llm/chat/stream", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: messageToSend, chat_id: chatId }),
+      body: JSON.stringify(requestBody),
     });
   
     if (!response.body) {
@@ -162,6 +182,7 @@ export function ChatPage() {
     if (returnedChatId && !chatId) {
       setChatId(returnedChatId);
       fetchChats(); // New chat created, refresh sidebar
+      setSelectedRealmId(null);
     }
   
     const reader = response.body.getReader();
@@ -189,6 +210,9 @@ export function ChatPage() {
     });
   };
 
+  const currentChat = chatId ? chats.find(c => c.id === chatId) : null;
+  const currentRealm = currentChat?.realm_id ? realms.find(r => r.id === currentChat.realm_id) : null;
+
   return (
     <div className="flex h-full bg-white dark:bg-gray-900">
       <ChatSidebar
@@ -213,14 +237,22 @@ export function ChatPage() {
               autoFocus
             />
           ) : (
-            <h2 
-              className="text-xl font-semibold dark:text-gray-100 cursor-pointer"
-              onClick={() => {
-                if(chatId) setEditingTitle(true);
-              }}
-            >
-              {chatId ? chats.find(c => c.id === chatId)?.title || '...' : "New Chat"}
-            </h2>
+            <div>
+              <h2 
+                className="text-xl font-semibold dark:text-gray-100 cursor-pointer"
+                onClick={() => {
+                  if(chatId) setEditingTitle(true);
+                }}
+              >
+                {currentChat?.title || 'New Chat'}
+              </h2>
+              {currentRealm && (
+                <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  <Shield size={14} className="mr-1" />
+                  <span>{currentRealm.name}</span>
+                </div>
+              )}
+            </div>
           )}
         </header>
         <div className="flex-grow p-4 overflow-y-auto">
@@ -262,6 +294,22 @@ export function ChatPage() {
           )}
         </div>
         <div className="p-4 border-t dark:border-gray-700">
+          {!chatId && (
+            <div className="mb-2">
+              <label htmlFor="realm-select" className="text-sm text-gray-600 dark:text-gray-400">Attach Realm (optional)</label>
+              <select
+                id="realm-select"
+                value={selectedRealmId || ""}
+                onChange={(e) => setSelectedRealmId(e.target.value || null)}
+                className="w-full mt-1 p-2 border rounded-lg dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+              >
+                <option value="">None</option>
+                {realms.map(realm => (
+                  <option key={realm.id} value={realm.id}>{realm.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="relative">
             <input
               type="text"

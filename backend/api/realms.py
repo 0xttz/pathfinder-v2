@@ -15,6 +15,14 @@ async def get_realms():
         raise HTTPException(status_code=500, detail="Error fetching realms")
     return response.data
 
+@router.get("/realms/{realm_id}", response_model=Realm)
+async def get_realm(realm_id: str):
+    """Get a single realm by its ID"""
+    response = supabase_client.table("realms").select("*").eq("id", realm_id).single().execute()
+    if not response.data:
+        raise HTTPException(status_code=404, detail="Realm not found")
+    return response.data
+
 @router.post("/realms", response_model=Realm)
 async def create_realm(realm: RealmCreate):
     """Create a new realm"""

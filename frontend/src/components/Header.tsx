@@ -4,8 +4,8 @@ import { cn } from "../lib/utils";
 
 export function Header() {
   return (
-    <header className="flex items-center justify-between p-4 bg-gray-50 border-b border-gray-200">
-      <h1 className="text-2xl font-bold">Pathfinder</h1>
+    <header className="flex items-center justify-between p-4 bg-gray-50 border-b border-gray-200 dark:bg-gray-900 dark:border-gray-700">
+      <h1 className="text-2xl font-bold dark:text-gray-100">Pathfinder</h1>
       <nav>
         <ul className="flex items-center space-x-4">
           <li>
@@ -13,8 +13,10 @@ export function Header() {
               to="/"
               className={({ isActive }) =>
                 cn(
-                  "flex items-center px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors",
-                  isActive ? "bg-gray-200 font-semibold" : "text-gray-600"
+                  "flex items-center px-3 py-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors",
+                  isActive
+                    ? "bg-gray-200 dark:bg-gray-800 font-semibold text-gray-900 dark:text-gray-100"
+                    : "text-gray-600 dark:text-gray-300"
                 )
               }
             >
@@ -27,8 +29,10 @@ export function Header() {
               to="/realms"
               className={({ isActive }) =>
                 cn(
-                  "flex items-center px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors",
-                  isActive ? "bg-gray-200 font-semibold" : "text-gray-600"
+                  "flex items-center px-3 py-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors",
+                  isActive
+                    ? "bg-gray-200 dark:bg-gray-800 font-semibold text-gray-900 dark:text-gray-100"
+                    : "text-gray-600 dark:text-gray-300"
                 )
               }
             >

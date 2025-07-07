@@ -11,7 +11,7 @@ router = APIRouter()
 @router.get("/chats", tags=["Chats"])
 async def get_chats():
     """Gets all chat sessions."""
-    res = supabase_client.from_("chats").select("id, title, created_at").order("created_at", desc=True).execute()
+    res = supabase_client.from_("chats").select("id, title, created_at, realm_id").order("created_at", desc=True).execute()
     if res.data is None:
         return []
     return res.data
