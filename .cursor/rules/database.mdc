@@ -1,0 +1,105 @@
+---
+description: Database and Supabase integration rules
+globs: "backend/**/*{database,db,model,schema}*.py"
+---
+
+# Database Rules
+
+## Database Architecture
+- **Provider**: Supabase (PostgreSQL)
+- **Model**: Single-user simplified persistence
+- **Keys**: UUID primary keys for all tables
+- **Relationships**: Foreign key constraints maintained
+
+## Schema Design
+
+### Core Tables
+```sql
+-- realms: Context definitions for conversations
+realms (
+  id uuid PRIMARY KEY,
+  name text NOT NULL,
+  system_prompt text,
+  created_at timestamptz DEFAULT now()
+)
+
+-- chats: Chat sessions
+chats (
+  id uuid PRIMARY KEY,
+  realm_id uuid REFERENCES realms(id),
+  title text,
+  created_at timestamptz DEFAULT now()
+)
+
+-- chat_messages: Individual messages
+chat_messages (
+  id uuid PRIMARY KEY,
+  chat_id uuid REFERENCES chats(id),
+  role text CHECK (role IN ('user', 'model')),
+  content text NOT NULL,
+  created_at timestamptz DEFAULT now()
+)
+
+-- reflections: Q&A pairs for realms
+reflections (
+  id uuid PRIMARY KEY,
+  realm_id uuid REFERENCES realms(id),
+  question text NOT NULL,
+  answer text,
+  created_at timestamptz DEFAULT now()
+)
+```
+
+## Data Operations
+
+### Query Patterns
+- Use async database operations exclusively
+- Implement proper connection pooling
+- Use prepared statements to prevent SQL injection
+- Add appropriate indexes for query performance
+
+### CRUD Operations
+- **Create**: Use INSERT with RETURNING clause
+- **Read**: Use SELECT with proper filtering
+- **Update**: Use UPDATE with WHERE clauses
+- **Delete**: Use soft deletes where appropriate
+
+### Performance Guidelines
+- Implement pagination for large result sets
+- Use LIMIT and OFFSET for pagination
+- Consider database indexes for frequently queried columns
+- Evaluate query complexity before implementation
+
+## Supabase Integration
+
+### Connection Management
+- Use environment variables for database credentials
+- Implement connection pooling for production
+- Handle connection failures gracefully
+- Use async/await for all database operations
+
+### Error Handling
+- Catch and handle database-specific errors
+- Provide meaningful error messages
+- Log database errors for debugging
+- Implement retry logic for transient failures
+
+### Security Practices
+- Use parameterized queries to prevent SQL injection
+- Validate all input data before database operations
+- Implement proper access controls
+- Never expose raw database errors to users
+
+## Migration Strategy
+
+### Schema Changes
+- Version control all schema changes
+- Use migration scripts for schema updates
+- Test migrations thoroughly before deployment
+- Backup data before major schema changes
+
+### Data Integrity
+- Maintain foreign key relationships
+- Use appropriate data types
+- Implement check constraints where needed
+- Ensure data consistency across operations

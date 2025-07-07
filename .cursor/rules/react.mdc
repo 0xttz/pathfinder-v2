@@ -1,0 +1,77 @@
+---
+description: React frontend development rules
+globs: "frontend/**/*.{ts,tsx,js,jsx,css}"
+---
+
+# React Frontend Rules
+
+## Technology Stack
+- **Framework**: React 18+ with Vite
+- **Styling**: Tailwind CSS
+- **Language**: TypeScript preferred, JavaScript acceptable
+- **Build Tool**: Vite with hot reload
+
+## Code Quality Standards
+
+### TypeScript Usage
+- Use TypeScript for new components when possible
+- Provide proper type definitions for props and state
+- Use interface declarations for component props
+- Leverage type inference where appropriate
+
+### Component Architecture
+- Create functional components with hooks
+- Use React.memo() for performance optimization when needed
+- Implement proper prop drilling or context for state management
+- Keep components focused on single responsibilities
+
+### Styling Guidelines
+- Use Tailwind CSS for styling
+- Maintain consistent spacing and color schemes
+- Implement responsive design with Tailwind breakpoints
+- Follow minimalistic, clean UI principles
+
+## Performance Considerations
+
+### Real-time Features
+- Implement streaming responses for AI chat
+- Use loading states for async operations
+- Implement proper error boundaries
+- Handle network failures gracefully
+
+### State Management
+- Use React hooks for local state
+- Consider React Context for global state
+- Implement proper cleanup in useEffect
+- Avoid unnecessary re-renders
+
+## UI/UX Guidelines
+
+### Design Principles
+- Minimalistic, clean interface
+- Consistent component integration
+- Real-time message rendering
+- Intuitive navigation patterns
+
+### Accessibility
+- Use semantic HTML elements
+- Implement proper ARIA labels
+- Ensure keyboard navigation
+- Maintain color contrast standards
+
+## File Organization
+```
+frontend/src/
+├── components/        # Reusable UI components
+├── pages/            # Route components
+├── hooks/            # Custom React hooks
+├── types/            # TypeScript type definitions
+├── utils/            # Utility functions
+└── styles/           # Global styles and Tailwind config
+```
+
+## API Integration
+- Use fetch() or axios for HTTP requests
+- Implement proper error handling for API calls
+- Use async/await pattern consistently
+- Handle loading and error states in UI

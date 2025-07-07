@@ -1,10 +1,10 @@
 # Pathfinder Project Cursor Rules
 
 ## Project Context
-- Pathfinder: Smart chat application for personal reflection with anonymous persistence
+- Pathfinder: Smart chat application for personal reflection with persistent storage
 - Frontend: React + Vite + Tailwind CSS
 - Backend: Python FastAPI + Supabase + Google Gemini API
-- Anonymous user model with session_id-based persistence
+- Single-user model with simplified persistence
 
 ## Core Development Principles
 
@@ -23,7 +23,7 @@
 ### Environment Management
 - Backend: Use virtual environment in `/backend/venv`
 - Never create new .env files; request specific values when needed
-- Store session_id in browser localStorage
+- Single-user application with persistent database storage
 
 ### Maintain Boundaries
 - Frontend code stays in `/frontend`
@@ -46,15 +46,15 @@
 - Graceful fallbacks for API failures
 - User-friendly error messages
 
-### Anonymous Session Management
-- Generate UUID session_id on first visit
-- Store in localStorage, never cookies
-- All API calls include session_id
-- Database queries scoped by session_id
+### Single-User Model
+- Direct API communication without session management
+- Simplified data persistence for single user
+- All database operations for one user
+- No session scoping required
 
 ### Database Schema
 - All tables use UUID primary keys
-- session_id indexing for performance
+- Simple single-user data model
 - Foreign key relationships maintained
 - Timestamps for audit trails
 
@@ -73,7 +73,7 @@
 
 ### API Design
 - RESTful endpoints with clear resource naming
-- Include session_id in request body or headers
+- Direct single-user API operations
 - Streaming responses for LLM interactions
 - Proper HTTP status codes
 

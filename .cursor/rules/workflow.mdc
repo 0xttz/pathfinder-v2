@@ -1,0 +1,95 @@
+---
+description: Development workflow and process rules
+globs: "**/*{test,spec,config,env}*"
+---
+
+# Development Workflow Rules
+
+## Development Process
+
+### Planning Phase
+- Create specific change outline before coding
+- Reference `PROJECT_SUMMARY.md` for feature scope
+- Break complex tasks into atomic changes
+- Document changes with file paths and line numbers
+
+### Implementation Phase
+- Make surgical changes to existing methods
+- Avoid complete rewrites unless necessary
+- Follow established patterns in codebase
+- Test changes incrementally
+
+### Quality Assurance
+- Strategic debugging logs during development
+- Remove debugging logs after confirming functionality
+- Implement proper error boundaries
+- Test edge cases and error scenarios
+
+## Git & Version Control
+
+### Commit Standards
+- Target single concerns per commit
+- Write descriptive commit messages
+- Include file paths in commit descriptions
+- Maintain clean commit history
+
+### Branch Management
+- Work on feature branches when appropriate
+- Keep commits focused and atomic
+- Rebase when necessary to maintain clean history
+
+## Environment & Configuration
+
+### Development Environment
+- Use existing virtual environment: `/backend/venv`
+- Never create new `.env` files without explicit request
+- Request specific environment values when needed
+- Maintain separation between development and production configs
+
+### Configuration Management
+- Use environment variables for sensitive data
+- Document required environment variables
+- Provide example configurations when helpful
+- Keep configuration files version controlled (excluding secrets)
+
+## Testing Strategy
+
+### Test Coverage
+- Write tests for critical business logic
+- Test error scenarios and edge cases
+- Implement integration tests for API endpoints
+- Test database operations thoroughly
+
+### Test Organization
+- Organize tests by feature/module
+- Use descriptive test names
+- Include both positive and negative test cases
+- Mock external dependencies appropriately
+
+## Performance & Monitoring
+
+### Performance Guidelines
+- Profile critical code paths
+- Implement caching where appropriate
+- Monitor database query performance
+- Use async operations for I/O bound tasks
+
+### Debugging & Logging
+- Add strategic logging for debugging
+- Use appropriate log levels
+- Include context in error messages
+- Remove or comment out debug logs after development
+
+## Communication Standards
+
+### Documentation
+- Update documentation when changing APIs
+- Include code examples in documentation
+- Keep README files current
+- Document complex business logic
+
+### Code Reviews
+- Review for security vulnerabilities
+- Check for performance implications
+- Verify error handling implementation
+- Ensure code follows established patterns

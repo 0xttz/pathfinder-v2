@@ -1,0 +1,106 @@
+---
+description: FastAPI backend development rules
+globs: "backend/**/*.py"
+---
+
+# FastAPI Backend Rules
+
+## Technology Stack
+- **Framework**: FastAPI with Python 3.8+
+- **Database**: Supabase (PostgreSQL)
+- **AI Provider**: Google Gemini API
+- **Environment**: Virtual environment in `/backend/venv`
+
+## Code Quality Standards
+
+### Python Best Practices
+- Use Python type hints for all function parameters and returns
+- Follow PEP 8 style guidelines
+- Use descriptive variable and function names
+- Implement proper docstrings for functions and classes
+
+### FastAPI Patterns
+- Use dependency injection for database connections
+- Implement proper request/response models with Pydantic
+- Use async/await for I/O operations
+- Leverage FastAPI's automatic API documentation
+
+### Error Handling
+- Implement structured error responses for all edge cases
+- Use HTTPException with appropriate status codes
+- Provide user-friendly error messages
+- Log errors appropriately for debugging
+
+## API Design
+
+### RESTful Principles
+- Use clear, resource-based endpoint naming
+- Implement proper HTTP status codes
+- Follow REST conventions for CRUD operations
+- Use consistent response formats
+
+### Single-User Model
+- Direct API operations without session management
+- Simplified data persistence for single user
+- All database operations for one user
+- No session scoping required
+
+### Streaming Support
+- Implement streaming responses for LLM interactions
+- Use Server-Sent Events (SSE) for real-time updates
+- Handle streaming errors gracefully
+
+## Database Operations
+
+### Supabase Integration
+- Use async database operations
+- Implement proper connection pooling
+- Use UUID primary keys for all tables
+- Maintain foreign key relationships
+
+### Performance Considerations
+- Implement pagination for large datasets
+- Evaluate query complexity
+- Use indexes appropriately
+- Cache frequently accessed data when needed
+
+## Security & Environment
+
+### API Security
+- Validate all input data
+- Sanitize user inputs
+- Use environment variables for secrets
+- Implement rate limiting where appropriate
+
+### Environment Management
+- Use virtual environment: `/backend/venv`
+- Keep environment variables in secure storage
+- Never commit secrets to version control
+
+## File Organization
+```
+backend/
+├── app/
+│   ├── main.py           # FastAPI application entry
+│   ├── routers/          # API route handlers
+│   ├── models/           # Pydantic models
+│   ├── services/         # Business logic
+│   ├── database/         # Database connection and schemas
+│   └── utils/            # Utility functions
+├── requirements.txt      # Python dependencies
+└── venv/                # Virtual environment
+```
+
+## AI Integration
+
+### Gemini API
+- Use async calls for AI requests
+- Implement proper error handling for API failures
+- Handle rate limiting and timeouts
+- Stream responses when possible
+
+### LLM Best Practices
+- Validate AI responses before returning
+- Implement fallback strategies for AI failures
+- Log AI interactions for debugging
+- Handle context length limits appropriately

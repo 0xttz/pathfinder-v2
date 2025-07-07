@@ -1,0 +1,62 @@
+---
+description: Core project rules for Pathfinder development
+globs: "*"
+---
+
+# Pathfinder Project Rules
+
+## Project Context
+- **Pathfinder**: Smart chat application for personal reflection with persistent storage
+- **Frontend**: React + Vite + Tailwind CSS
+- **Backend**: Python FastAPI + Supabase + Google Gemini API
+- **Architecture**: Single-user model with simplified persistence
+
+## Core Development Principles
+
+### Plan First
+- Create specific change outline before coding
+- Reference `PROJECT_SUMMARY.md` for feature scope and architecture
+- Follow 3-phase MVP approach (Chat → Realms → Synthesis)
+
+### Minimal Touch
+- Modify only files directly related to requirements
+- Make surgical changes to existing methods; avoid rewrites
+- Target single concerns per commit
+
+### Reuse Existing Code
+- Search for and leverage similar logic before creating new
+- Maintain consistent patterns across components
+- Use existing environment setup; never create new .env files
+
+### Maintain Boundaries
+- Frontend code stays in `/frontend`
+- Backend code stays in `/backend`
+- No mixing of frontend/backend logic
+
+## Critical Instructions
+
+### Development Server Management
+- **NEVER START DEVELOPMENT SERVER** automatically
+- Assume servers run with `--reload` flag
+- Return commands for manual execution only
+
+### Environment Management
+- Backend: Use virtual environment in `/backend/venv`
+- Request specific values when environment variables needed
+- Single-user application with persistent database storage
+
+### Communication Style
+- Direct, factual statements without hedging
+- Concise change summaries with file paths and line numbers
+- Focus on knowledge persistence across Claude instances
+
+## File Structure
+```
+pathfinder/
+├── frontend/           # React + Vite application
+├── backend/           # FastAPI application
+├── .cursor/rules/     # Modern cursor rules
+├── PROJECT_SUMMARY.md # Feature specifications
+├── .gitignore        # Git exclusions
+└── README.md         # Project documentation
+```

@@ -1,13 +1,13 @@
 # Pathfinder
 
-A smart chat application for personal reflection with anonymous persistence. Create structured "Realms" for different life areas and engage in focused conversations with AI that remember your context.
+A smart chat application for personal reflection with persistent storage. Create structured "Realms" for different life areas and engage in focused conversations with AI that remember your context.
 
 ## Project Overview
 
 - **Frontend**: React + TypeScript + Vite + Tailwind CSS
 - **Backend**: Python + FastAPI + Supabase + Google Gemini API
 - **Database**: Supabase (PostgreSQL)
-- **Authentication**: Anonymous session-based (no user accounts required)
+- **Architecture**: Single-user model with simplified persistence
 
 ## Project Structure
 
@@ -131,10 +131,10 @@ find . -name "*.py" -o -name "*.ts" -o -name "*.tsx" -o -name "*.json" | grep -E
 
 ## Development Workflow
 
-1. **Phase 1**: Core Chat & Anonymous Persistence
-   - Anonymous session management with localStorage
+1. **Phase 1**: Core Chat & Persistence
    - Basic chat interface with message history
    - Supabase integration for data persistence
+   - Single-user data model
 
 2. **Phase 2**: Persistent Realms
    - CRUD operations for Realms
@@ -148,8 +148,8 @@ find . -name "*.py" -o -name "*.ts" -o -name "*.tsx" -o -name "*.json" | grep -E
 
 ## Key Features
 
-- **Anonymous Sessions**: No user accounts required, session-based with UUID
-- **Persistent Storage**: All data saved to Supabase with session_id scoping
+- **Single-User Model**: Simplified architecture without user account complexity
+- **Persistent Storage**: All data saved to Supabase database
 - **Real-time Chat**: Streaming responses from Google Gemini API
 - **Structured Reflection**: Guided questions and synthesis for deeper insights
 - **Clean UI**: Minimalistic interface built with Tailwind CSS
@@ -170,7 +170,7 @@ GEMINI_API_KEY=your_gemini_api_key
 - `chats`: Chat sessions linked to realms
 - `chat_messages`: Individual messages in conversations
 
-All tables are scoped by `session_id` for anonymous user separation.
+Single-user data model with simplified table relationships.
 
 ## Development Guidelines
 
@@ -179,7 +179,7 @@ All tables are scoped by `session_id` for anonymous user separation.
 - Include type hints in Python backend code
 - Maintain separation between frontend/backend
 - Test changes manually before committing
-- Keep sessions anonymous and browser-based
+- Single-user architecture with persistent storage
 
 ## Git Workflow
 
