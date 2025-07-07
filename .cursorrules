@@ -1,0 +1,100 @@
+# Pathfinder Project Cursor Rules
+
+## Project Context
+- Pathfinder: Smart chat application for personal reflection with anonymous persistence
+- Frontend: React + Vite + Tailwind CSS
+- Backend: Python FastAPI + Supabase + Google Gemini API
+- Anonymous user model with session_id-based persistence
+
+## Core Development Principles
+
+### Plan First
+- Create specific change outline before coding
+- Reference PROJECT_SUMMARY.md for feature scope and architecture
+
+### Minimal Touch
+- Modify only files directly related to requirements
+- Follow 3-phase MVP approach (Chat → Realms → Synthesis)
+
+### Reuse Existing Code
+- Search for and leverage similar logic before creating new
+- Maintain consistent patterns across components
+
+### Environment Management
+- Backend: Use virtual environment in `/backend/venv`
+- Never create new .env files; request specific values when needed
+- Store session_id in browser localStorage
+
+### Maintain Boundaries
+- Frontend code stays in `/frontend`
+- Backend code stays in `/backend`
+- No mixing of frontend/backend logic
+
+## Technical Requirements
+
+### Atomic Changes
+- Target single concerns per commit
+- Document changes with file paths and line numbers
+
+### Performance Aware
+- Implement pagination for large datasets
+- Use streaming for AI responses
+- Evaluate complexity of database queries
+
+### Robust Error Handling
+- Structured error responses for all edge cases
+- Graceful fallbacks for API failures
+- User-friendly error messages
+
+### Anonymous Session Management
+- Generate UUID session_id on first visit
+- Store in localStorage, never cookies
+- All API calls include session_id
+- Database queries scoped by session_id
+
+### Database Schema
+- All tables use UUID primary keys
+- session_id indexing for performance
+- Foreign key relationships maintained
+- Timestamps for audit trails
+
+## Critical Instructions
+
+### Development Server
+- NEVER START DEVELOPMENT SERVER automatically
+- Assume servers run with --reload flag
+- Return commands for manual execution
+
+### Code Quality
+- Use TypeScript for frontend when possible
+- Python type hints in backend
+- Consistent naming conventions
+- Strategic debugging logs (remove after confirming)
+
+### API Design
+- RESTful endpoints with clear resource naming
+- Include session_id in request body or headers
+- Streaming responses for LLM interactions
+- Proper HTTP status codes
+
+### UI/UX Guidelines
+- Minimalistic, clean interface
+- Consistent component integration
+- Real-time message rendering
+- Loading states for async operations
+
+## File Structure
+```
+pathfinder/
+├── frontend/           # React + Vite application
+├── backend/           # FastAPI application
+├── PROJECT_SUMMARY.md # Feature specifications
+├── .cursorrules      # This file
+├── .gitignore        # Git exclusions
+└── README.md         # Project documentation
+```
+
+## Communication Style
+- Direct, factual statements without hedging
+- Concise change summaries with file paths
+- Focus on knowledge persistence across Claude instances 
