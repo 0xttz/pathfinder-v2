@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Send, Trash2, Shield } from "lucide-react";
 import { MarkdownRenderer } from "../components/MarkdownRenderer";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import type { Realm } from "./RealmsPage"; // Assuming RealmsPage exports Realm interface
+import { RealmSuggestionMenu } from "../components/RealmSuggestionMenu";
 
 interface Chat {
   id: string;
@@ -72,6 +73,17 @@ export function ChatPage() {
   const [editingTitle, setEditingTitle] = useState(false);
   const [realms, setRealms] = useState<Realm[]>([]);
   const [selectedRealmId, setSelectedRealmId] = useState<string | null>(null);
+  const [showRealmSuggestions, setShowRealmSuggestions] = useState(false);
+  const [realmSearchTerm, setRealmSearchTerm] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   const fetchRealms = useCallback(async () => {
     const response = await fetch("http://localhost:8000/realms");
@@ -142,6 +154,25 @@ export function ChatPage() {
     setEditingTitle(false);
   };
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setInput(value);
+
+    const match = value.match(/@(\S*)$/);
+    if (match) {
+      setShowRealmSuggestions(true);
+      setRealmSearchTerm(match[1]);
+    } else {
+      setShowRealmSuggestions(false);
+    }
+  };
+
+  const handleSelectRealm = (realm: Realm) => {
+    setSelectedRealmId(realm.id);
+    setInput(input.replace(/@\S*$/, ''));
+    setShowRealmSuggestions(false);
+  };
+
   const handleSendMessage = async () => {
     if (!input.trim() || isLoading) return;
   
@@ -158,7 +189,7 @@ export function ChatPage() {
       chat_id: chatId,
     };
 
-    if (selectedRealmId && !chatId) {
+    if (selectedRealmId) {
       requestBody.realm_id = selectedRealmId;
     }
 
@@ -182,8 +213,8 @@ export function ChatPage() {
     if (returnedChatId && !chatId) {
       setChatId(returnedChatId);
       fetchChats(); // New chat created, refresh sidebar
-      setSelectedRealmId(null);
     }
+    setSelectedRealmId(null);
   
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -212,6 +243,10 @@ export function ChatPage() {
 
   const currentChat = chatId ? chats.find(c => c.id === chatId) : null;
   const currentRealm = currentChat?.realm_id ? realms.find(r => r.id === currentChat.realm_id) : null;
+  const filteredRealms = realms.filter(realm =>
+    realm.name.toLowerCase().includes(realmSearchTerm.toLowerCase())
+  );
+  const selectedRealm = realms.find(r => r.id === selectedRealmId);
 
   return (
     <div className="flex h-full bg-white dark:bg-gray-900">
@@ -256,81 +291,88 @@ export function ChatPage() {
           )}
         </header>
         <div className="flex-grow p-4 overflow-y-auto">
-          {messages.length > 0 ? (
-            <div className="space-y-4">
-              {messages.map((msg, index) => (
-                <div
-                  key={index}
-                  className={`flex ${
-                    msg.role === "user" ? "justify-end" : "justify-start"
-                  }`}
-                >
+          <div className="max-w-4xl mx-auto w-full">
+            {messages.length > 0 ? (
+              <div className="space-y-6">
+                {messages.map((msg, index) => (
                   <div
-                    className={`p-3 rounded-lg ${
-                      msg.role === "user"
-                        ? "bg-blue-500 text-white max-w-md"
-                        : "bg-gray-200 dark:bg-gray-700 max-w-5xl"
+                    key={index}
+                    className={`flex ${
+                      msg.role === "user" ? "justify-end" : "justify-start"
                     }`}
                   >
-                    {msg.role === "model" ? (
-                      msg.content ? (
-                        <MarkdownRenderer content={msg.content} />
+                    <div
+                      className={`p-4 rounded-lg shadow-md ${
+                        msg.role === "user"
+                          ? "bg-blue-500 text-white max-w-lg"
+                          : "bg-gray-200 dark:bg-gray-700 max-w-4xl"
+                      }`}
+                    >
+                      {msg.role === "model" ? (
+                        msg.content ? (
+                          <MarkdownRenderer content={msg.content} />
+                        ) : (
+                          <LoadingSpinner />
+                        )
                       ) : (
-                        <LoadingSpinner />
-                      )
-                    ) : (
-                      msg.content
-                    )}
+                        msg.content
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-gray-400">
-                Your personal reflection space. Start a new conversation.
-              </p>
-            </div>
-          )}
+                ))}
+                <div ref={messagesEndRef} />
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-gray-400">
+                  Your personal reflection space. Start a new conversation.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
         <div className="p-4 border-t dark:border-gray-700">
-          {!chatId && (
-            <div className="mb-2">
-              <label htmlFor="realm-select" className="text-sm text-gray-600 dark:text-gray-400">Attach Realm (optional)</label>
-              <select
-                id="realm-select"
-                value={selectedRealmId || ""}
-                onChange={(e) => setSelectedRealmId(e.target.value || null)}
-                className="w-full mt-1 p-2 border rounded-lg dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+          <div className="max-w-4xl mx-auto w-full">
+            <div className="relative">
+              {showRealmSuggestions && !chatId && (
+                <RealmSuggestionMenu
+                  realms={realms}
+                  onSelectRealm={handleSelectRealm}
+                  searchTerm={realmSearchTerm}
+                />
+              )}
+              {selectedRealm && (
+                <div className="mb-2 flex items-center">
+                  <span className="mr-2 inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-800 dark:bg-blue-900 dark:text-blue-300">
+                    <Shield size={14} className="mr-1.5" />
+                    {selectedRealm.name}
+                  </span>
+                  <button onClick={() => setSelectedRealmId(null)} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                    &times;
+                  </button>
+                </div>
+              )}
+              <input
+                type="text"
+                value={input}
+                onChange={handleInputChange}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleSendMessage();
+                  }
+                }}
+                placeholder="Type @ to select a realm for a new chat..."
+                className="w-full pr-12 p-3 border rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+                disabled={isLoading}
+              />
+              <button
+                onClick={handleSendMessage}
+                className="absolute inset-y-0 right-0 flex items-center justify-center w-12 text-gray-500 hover:text-blue-500 disabled:opacity-50"
+                disabled={isLoading}
               >
-                <option value="">None</option>
-                {realms.map(realm => (
-                  <option key={realm.id} value={realm.id}>{realm.name}</option>
-                ))}
-              </select>
+                <Send className="w-6 h-6" />
+              </button>
             </div>
-          )}
-          <div className="relative">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  handleSendMessage();
-                }
-              }}
-              placeholder="Your personal reflection space. Start a new conversation."
-              className="w-full pr-12 p-3 border rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
-              disabled={isLoading}
-            />
-            <button
-              onClick={handleSendMessage}
-              className="absolute inset-y-0 right-0 flex items-center justify-center w-12 text-gray-500 hover:text-blue-500 disabled:opacity-50"
-              disabled={isLoading}
-            >
-              <Send className="w-6 h-6" />
-            </button>
           </div>
         </div>
       </div>

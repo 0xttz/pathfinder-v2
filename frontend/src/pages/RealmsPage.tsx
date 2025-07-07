@@ -1,19 +1,24 @@
 import { Plus, Shield, Trash2, Edit } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect, useCallback } from "react";
 import { RealmEditModal } from "../components/RealmEditModal";
+import { PlusCircle, ChevronsRight } from "lucide-react";
 
 export interface Realm {
   id: string;
   name: string;
-  system_prompt: string;
+  system_prompt: string | null;
+  created_at: string;
+  is_default: boolean;
 }
 
 export function RealmsPage() {
   const [realms, setRealms] = useState<Realm[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [defaultRealm, setDefaultRealm] = useState<Realm | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRealm, setEditingRealm] = useState<Realm | null>(null);
+  const navigate = useNavigate();
 
   const fetchRealms = useCallback(async () => {
     setIsLoading(true);
@@ -22,8 +27,12 @@ export function RealmsPage() {
       if (!response.ok) {
         throw new Error("Failed to fetch realms");
       }
-      const data = await response.json();
-      setRealms(data);
+      const data: Realm[] = await response.json();
+      const defaultRealm = data.find(r => r.is_default) || null;
+      const otherRealms = data.filter(r => !r.is_default);
+      
+      setDefaultRealm(defaultRealm);
+      setRealms(otherRealms);
     } catch (error) {
       console.error(error);
     } finally {
@@ -68,50 +77,61 @@ export function RealmsPage() {
     setIsModalOpen(true);
   }
 
+  const handleCreateRealm = async () => {
+    const newRealm = { name: "New Realm", system_prompt: "" };
+    const response = await fetch("http://localhost:8000/realms", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newRealm),
+    });
+    const createdRealm = await response.json();
+    navigate(`/realms/${createdRealm.id}`);
+  };
+
+  if (isLoading) {
+    return <div className="p-4"><p>Loading realms...</p></div>;
+  }
+
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-gray-900">
-      <header className="flex items-center justify-between p-4 border-b dark:border-gray-700">
-        <h2 className="text-xl font-semibold dark:text-gray-100">Realms</h2>
-        <button 
-          onClick={() => handleOpenModal(null)}
-          className="flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-lg hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700">
-          <Plus className="w-4 h-4 mr-2" />
-          New Realm
-        </button>
-      </header>
-      <div className="flex-grow p-4 overflow-y-auto">
-        {isLoading ? (
-          <div className="flex justify-center items-center h-full">
-            <p className="text-gray-500 dark:text-gray-400">Loading realms...</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {realms.map((realm) => (
-              <div
-                key={realm.id}
-                className="flex items-center p-4 bg-white border rounded-lg shadow-sm hover:shadow-md transition-shadow dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700"
-              >
-                <Link to={`/realms/${realm.id}`} className="flex items-center flex-grow">
-                  <Shield className="w-6 h-6 mr-4 text-blue-500 dark:text-blue-400" />
-                  <span className="text-lg font-medium dark:text-gray-200">{realm.name}</span>
+    <div className="p-4 md:p-6 bg-gray-50 dark:bg-gray-900 min-h-full">
+      <div className="max-w-4xl mx-auto">
+        {/* Default Realm Section */}
+        {defaultRealm && (
+            <div className="mb-8 bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-800 rounded-lg p-6 shadow-md">
+                <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2">About Me</h2>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                    This is your global context. Define your core traits, goals, and preferences here to make every conversation smarter.
+                </p>
+                <Link to={`/realms/${defaultRealm.id}`} className="inline-flex items-center font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                    Configure Your Core Context
+                    <ChevronsRight className="w-5 h-5 ml-1" />
                 </Link>
-                <div className="flex items-center space-x-2">
-                  <button 
-                    onClick={() => handleOpenModal(realm)}
-                    className="p-2 text-gray-500 hover:text-blue-600 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700">
-                    <Edit size={16} />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(realm.id)}
-                    className="p-2 text-gray-500 hover:text-red-600 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+            </div>
         )}
+        
+        {/* Other Realms Section */}
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Your Realms</h1>
+          <button
+            onClick={handleCreateRealm}
+            className="flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+          >
+            <PlusCircle className="w-4 h-4 mr-2" />
+            Create Realm
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {realms.map((realm) => (
+            <div
+              key={realm.id}
+              onClick={() => navigate(`/realms/${realm.id}`)}
+              className="p-4 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg cursor-pointer hover:shadow-lg transition-shadow"
+            >
+              <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">{realm.name}</h3>
+            </div>
+          ))}
+        </div>
       </div>
       <RealmEditModal
         isOpen={isModalOpen}

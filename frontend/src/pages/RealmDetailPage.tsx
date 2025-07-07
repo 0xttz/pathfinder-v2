@@ -1,7 +1,14 @@
-import { useParams, useNavigate } from "react-router-dom";
-import { Bot, Save, Trash2, Wand2 } from "lucide-react";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import { Save, Trash2, Wand2, Sparkles, Archive } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import type { Realm } from "./RealmsPage";
+import UserProfile from "../components/UserProfile";
+
+interface Reflection {
+  id: string;
+  question: string;
+  answer: string | null;
+}
 
 export function RealmDetailPage() {
   const { realmId } = useParams();
@@ -10,19 +17,28 @@ export function RealmDetailPage() {
   const [name, setName] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [reflections, setReflections] = useState<Reflection[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isSynthesizing, setIsSynthesizing] = useState(false);
 
-  const fetchRealm = useCallback(async () => {
+  const fetchRealmAndReflections = useCallback(async () => {
     if (!realmId) return;
     setIsLoading(true);
     try {
-      const response = await fetch(`http://localhost:8000/realms/${realmId}`);
-      if (!response.ok) {
-        throw new Error("Realm not found");
-      }
-      const data = await response.json();
-      setRealm(data);
-      setName(data.name);
-      setSystemPrompt(data.system_prompt);
+      // Fetch realm details
+      const realmResponse = await fetch(`http://localhost:8000/realms/${realmId}`);
+      if (!realmResponse.ok) throw new Error("Realm not found");
+      const realmData = await realmResponse.json();
+      setRealm(realmData);
+      setName(realmData.name);
+      setSystemPrompt(realmData.system_prompt || "");
+
+      // Fetch reflections
+      const reflectionsResponse = await fetch(`http://localhost:8000/realms/${realmId}/reflections`);
+      if (!reflectionsResponse.ok) throw new Error("Could not fetch reflections");
+      const reflectionsData = await reflectionsResponse.json();
+      setReflections(reflectionsData);
+
     } catch (error) {
       console.error(error);
       navigate("/realms");
@@ -32,8 +48,8 @@ export function RealmDetailPage() {
   }, [realmId, navigate]);
 
   useEffect(() => {
-    fetchRealm();
-  }, [fetchRealm]);
+    fetchRealmAndReflections();
+  }, [fetchRealmAndReflections]);
 
   const handleSave = async () => {
     if (!realmId) return;
@@ -53,16 +69,62 @@ export function RealmDetailPage() {
     }
   };
 
-  const reflections = [
-    {
-      question: "What has been your most significant professional achievement?",
-      answer: "Leading the 'Phoenix' project from conception to launch.",
-    },
-    {
-      question: "What professional skill do you most want to develop?",
-      answer: "I want to become more proficient in public speaking.",
-    },
-  ];
+  const handleGenerateQuestions = async () => {
+    if (!realmId) return;
+    setIsGenerating(true);
+    try {
+        const response = await fetch(`http://localhost:8000/realms/${realmId}/generate-questions`, { method: 'POST' });
+        if (!response.ok) {
+            throw new Error('Failed to generate questions');
+        }
+        const newReflections = await response.json();
+        setReflections(prev => [...prev, ...newReflections]);
+    } catch (error) {
+        console.error(error);
+        alert('Error generating questions.');
+    } finally {
+        setIsGenerating(false);
+    }
+  };
+
+  const handleSynthesize = async () => {
+    if (!realmId) return;
+    setIsSynthesizing(true);
+    try {
+        const response = await fetch(`http://localhost:8000/realms/${realmId}/synthesize`, { method: 'POST' });
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Failed to synthesize');
+        }
+        const updatedRealm = await response.json();
+        setSystemPrompt(updatedRealm.system_prompt);
+        alert("System prompt updated with synthesis!");
+    } catch (error) {
+        console.error(error);
+        alert(`Error synthesizing: ${(error as Error).message}`);
+    } finally {
+        setIsSynthesizing(false);
+    }
+  };
+
+  const handleAnswerChange = async (reflectionId: string, answer: string) => {
+    // Optimistic update
+    setReflections(prev => 
+        prev.map(r => r.id === reflectionId ? { ...r, answer } : r)
+    );
+
+    try {
+        await fetch(`http://localhost:8000/reflections/${reflectionId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ answer })
+        });
+    } catch (error) {
+        console.error("Failed to save answer:", error);
+        // Optionally revert state here
+        alert("Failed to save your answer. Please try again.");
+    }
+  };
 
   if (isLoading) {
     return <div className="flex justify-center items-center h-full dark:bg-gray-900"><p className="text-gray-500 dark:text-gray-400">Loading Realm...</p></div>;
@@ -91,68 +153,89 @@ export function RealmDetailPage() {
       </header>
 
       <div className="flex-grow p-4 overflow-y-auto space-y-6">
-        <div>
-          <label
-            htmlFor="realm-name"
-            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-          >
-            Realm Name
-          </label>
-          <input
-            id="realm-name"
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full p-2 mt-1 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600"
-          />
-        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-6">
+            <div>
+              <label
+                htmlFor="realm-name"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
+                Realm Name
+              </label>
+              <input
+                id="realm-name"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full p-2 mt-1 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600"
+              />
+            </div>
 
-        <div>
-          <label
-            htmlFor="system-prompt"
-            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-          >
-            System Prompt
-          </label>
-          <textarea
-            id="system-prompt"
-            rows={5}
-            value={systemPrompt}
-            onChange={(e) => setSystemPrompt(e.target.value)}
-            className="w-full p-2 mt-1 border rounded-lg font-mono text-sm bg-white dark:bg-gray-800 dark:border-gray-600"
-          />
-        </div>
-
-        <div className="p-4 border rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
-          <h3 className="text-lg font-semibold">Guided Reflection</h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            Answer these questions to help the AI build a better profile for this realm.
-          </p>
-          <div className="flex items-center space-x-2 mt-4">
-            <button className="flex items-center px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700">
-              <Bot className="w-4 h-4 mr-2" />
-              Generate Questions
-            </button>
-            <button className="flex items-center px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700">
-              <Wand2 className="w-4 h-4 mr-2" />
-              Synthesize
-            </button>
+            <div>
+              <label
+                htmlFor="system-prompt"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
+                System Prompt
+              </label>
+              <textarea
+                id="system-prompt"
+                rows={10}
+                value={systemPrompt}
+                onChange={(e) => setSystemPrompt(e.target.value)}
+                className="w-full p-2 mt-1 border rounded-lg font-mono text-sm bg-white dark:bg-gray-800 dark:border-gray-600"
+              />
+            </div>
+            {realm.name === "About Me" && <UserProfile />}
           </div>
-
-          <div className="mt-4 space-y-4">
-            {reflections.map((r, i) => (
-              <div key={i}>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {r.question}
-                </label>
-                <textarea
-                  rows={3}
-                  defaultValue={r.answer}
-                  className="w-full p-2 mt-1 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600"
-                  placeholder="Your answer..."
-                />
-              </div>
-            ))}
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold">Guided Reflection</h3>
+                <div className="flex items-center space-x-2">
+                    <button 
+                        onClick={handleGenerateQuestions}
+                        disabled={isGenerating}
+                        className="flex items-center px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 disabled:bg-purple-400"
+                    >
+                        <Wand2 className="w-4 h-4 mr-2" />
+                        {isGenerating ? 'Generating...' : 'Generate Questions'}
+                    </button>
+                    <button 
+                        onClick={handleSynthesize}
+                        disabled={isSynthesizing}
+                        className="flex items-center px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:bg-green-400"
+                    >
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        {isSynthesizing ? 'Synthesizing...' : 'Synthesize'}
+                    </button>
+                </div>
+            </div>
+            <div className="space-y-4">
+              {reflections.length > 0 ? (
+                reflections.map((reflection) => (
+                  <div key={reflection.id}>
+                    <label className="block text-sm font-medium text-gray-500 dark:text-gray-400">
+                      {reflection.question}
+                    </label>
+                    <textarea
+                      rows={3}
+                      placeholder="Your thoughts..."
+                      defaultValue={reflection.answer || ""}
+                      className="w-full p-2 mt-1 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600"
+                      onChange={(e) => handleAnswerChange(reflection.id, e.target.value)}
+                    />
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500 dark:text-gray-400">No reflection questions yet. Generate some to get started!</p>
+              )}
+            </div>
+            <div className="mt-6 text-center">
+                <Link to={`/realms/${realmId}/archive`} className="inline-flex items-center px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800">
+                    <Archive className="w-4 h-4 mr-2" />
+                    View Answered Reflections
+                </Link>
+            </div>
           </div>
         </div>
       </div>

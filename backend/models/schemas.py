@@ -38,4 +38,16 @@ class Message(BaseModel):
     chat_id: str
     role: str
     content: str
+    created_at: datetime
+
+class ReflectionCreate(BaseModel):
+    realm_id: str
+    question: str
+    answer: Optional[str] = None
+
+class Reflection(BaseModel):
+    id: str
+    realm_id: str
+    question: str
+    answer: Optional[str] = None
     created_at: datetime 
