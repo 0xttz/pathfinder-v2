@@ -26,6 +26,9 @@ class Chat(BaseModel):
     title: Optional[str] = None
     created_at: datetime
 
+class ChatUpdate(BaseModel):
+    title: str
+
 class MessageCreate(BaseModel):
     content: str
     role: str = "user"

@@ -1,9 +1,90 @@
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+import asyncio
+import google.generativeai as genai
+from backend.core.config import settings
+from backend.db.supabase import supabase_client
+from typing import Optional
+import uuid
+
+# Configure the Gemini API
+genai.configure(api_key=settings.GEMINI_API_KEY)
 
 router = APIRouter()
 
 # This is a temporary dependency, will be removed
 realms_store = {} 
+
+class ChatRequest(BaseModel):
+    message: str
+    chat_id: Optional[str] = None
+
+async def gemini_llm_streamer(message: str, chat_id: str):
+    """Streams a response from the Gemini API and saves messages."""
+    # 1. Fetch chat history
+    messages_res = supabase_client.from_("messages").select("role, content").eq("chat_id", chat_id).order("created_at").execute()
+    
+    history = []
+    if messages_res.data:
+        for record in messages_res.data:
+            history.append({
+                "role": record["role"],
+                "parts": [record["content"]]
+            })
+
+    # 2. Save user message before sending to LLM
+    supabase_client.from_("messages").insert({
+        "chat_id": chat_id,
+        "role": "user",
+        "content": message
+    }).execute()
+
+    # Add the new user message to the history for the API call
+    history.append({"role": "user", "parts": [message]})
+
+    # KEEP THIS AS 2.5-flash !!!!
+    model = genai.GenerativeModel('gemini-2.5-flash')
+    
+    # 3. Send the entire conversation history to the model
+    response = await model.generate_content_async(history, stream=True)
+    
+    full_model_response = ""
+    async for chunk in response:
+        if chunk.text:
+            full_model_response += chunk.text
+            yield chunk.text
+    
+    # 4. Save model message
+    supabase_client.from_("messages").insert({
+        "chat_id": chat_id,
+        "role": "model",
+        "content": full_model_response
+    }).execute()
+
+@router.post("/llm/chat/stream",)
+async def stream_chat(chat_request: ChatRequest):
+    """Streams a chat response back to the client."""
+    chat_id = chat_request.chat_id
+    if not chat_id:
+        # Create a new chat session
+        new_chat_id = str(uuid.uuid4())
+        title = chat_request.message[:50] # Simple title from first 50 chars
+        insert_res = supabase_client.from_("chats").insert({
+            "id": new_chat_id,
+            "title": title
+        }).execute()
+        if not insert_res.data:
+             raise HTTPException(status_code=500, detail="Failed to create new chat session.")
+        chat_id = insert_res.data[0]['id']
+
+
+    response = StreamingResponse(
+        gemini_llm_streamer(chat_request.message, chat_id), 
+        media_type="text/event-stream"
+    )
+    response.headers["X-Chat-Id"] = chat_id
+    return response
 
 @router.post("/realms/{realm_id}/generate-questions")
 async def generate_questions(realm_id: str):

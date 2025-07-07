@@ -3,54 +3,66 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException
 from typing import List
 
-from backend.models.schemas import Chat, ChatCreate, Message, MessageCreate
+from backend.models.schemas import Chat, ChatCreate, Message, MessageCreate, ChatUpdate
+from backend.db.supabase import supabase_client
 
 router = APIRouter()
 
-# In-memory storage for testing (will be replaced with Supabase)
-chats_store = {}
-messages_store = {}
-
-@router.get("/chats", response_model=List[Chat])
+@router.get("/chats", tags=["Chats"])
 async def get_chats():
-    """Get all chat sessions"""
-    return list(chats_store.values())
+    """Gets all chat sessions."""
+    res = supabase_client.from_("chats").select("id, title, created_at").order("created_at", desc=True).execute()
+    if res.data is None:
+        return []
+    return res.data
 
 @router.post("/chats", response_model=Chat)
 async def create_chat(chat: ChatCreate):
     """Create a new chat session"""
-    chat_id = str(uuid.uuid4())
-    new_chat = Chat(
-        id=chat_id,
-        realm_id=chat.realm_id,
-        title=chat.title,
-        created_at=datetime.now()
-    )
-    chats_store[chat_id] = new_chat
-    return new_chat
+    response = supabase_client.from_("chats").insert(chat.model_dump()).select("*").execute()
+    if not response.data:
+        raise HTTPException(status_code=400, detail="Failed to create chat")
+    return response.data[0]
 
-@router.get("/chats/{chat_id}/messages", response_model=List[Message])
-async def get_chat_messages(chat_id: str):
-    """Get all messages for a specific chat"""
-    if chat_id not in chats_store:
+@router.put("/chats/{chat_id}", response_model=Chat, tags=["Chats"])
+async def update_chat_title(chat_id: str, chat_update: ChatUpdate):
+    """Update a chat's title."""
+    response = supabase_client.from_("chats").update({"title": chat_update.title}).eq("id", chat_id).execute()
+    if not response.data:
         raise HTTPException(status_code=404, detail="Chat not found")
-    
-    chat_messages = [msg for msg in messages_store.values() if msg.chat_id == chat_id]
-    return sorted(chat_messages, key=lambda x: x.created_at)
+    return response.data[0]
+
+@router.get("/chats/{chat_id}/messages", tags=["Chats"])
+async def get_chat_messages(chat_id: str):
+    """Retrieves all messages for a specific chat."""
+    res = supabase_client.from_("messages").select("role, content").eq("chat_id", chat_id).order("created_at").execute()
+    if res.data is None:
+        return []
+    return res.data
 
 @router.post("/chats/{chat_id}/messages", response_model=Message)
 async def create_message(chat_id: str, message: MessageCreate):
     """Send a new message to a chat"""
-    if chat_id not in chats_store:
-        raise HTTPException(status_code=404, detail="Chat not found")
+    message_data = {
+        "chat_id": chat_id,
+        "role": message.role,
+        "content": message.content,
+    }
+    response = supabase_client.from_("messages").insert(message_data).select("*").execute()
+    if not response.data:
+        raise HTTPException(status_code=400, detail="Failed to create message")
+    return response.data[0]
+
+@router.delete("/chats/{chat_id}", tags=["Chats"])
+async def delete_chat(chat_id: str):
+    """Deletes a chat and all its messages."""
+    # First, delete all messages associated with the chat to uphold foreign key constraints.
+    messages_res = supabase_client.from_("messages").delete().eq("chat_id", chat_id).execute()
     
-    message_id = str(uuid.uuid4())
-    new_message = Message(
-        id=message_id,
-        chat_id=chat_id,
-        role=message.role,
-        content=message.content,
-        created_at=datetime.now()
-    )
-    messages_store[message_id] = new_message
-    return new_message 
+    # Then, delete the chat itself.
+    chat_res = supabase_client.from_("chats").delete().eq("id", chat_id).execute()
+
+    if not chat_res.data:
+         raise HTTPException(status_code=404, detail="Chat not found or could not be deleted.")
+
+    return {"message": "Chat deleted successfully"} 
