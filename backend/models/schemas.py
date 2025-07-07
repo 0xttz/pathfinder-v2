@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
+import uuid
 
 class RealmCreate(BaseModel):
     name: str
@@ -46,8 +47,14 @@ class ReflectionCreate(BaseModel):
     answer: Optional[str] = None
 
 class Reflection(BaseModel):
-    id: str
-    realm_id: str
+    id: uuid.UUID
+    realm_id: uuid.UUID
     question: str
     answer: Optional[str] = None
+    created_at: datetime
+
+class Text(BaseModel):
+    id: uuid.UUID
+    title: str
+    content: str
     created_at: datetime 

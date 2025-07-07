@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Send, Trash2, Shield } from "lucide-react";
+import { Send, Trash2, Shield, PlusSquare, MessageSquare } from "lucide-react";
 import { MarkdownRenderer } from "../components/MarkdownRenderer";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import type { Realm } from "./RealmsPage"; // Assuming RealmsPage exports Realm interface
@@ -29,31 +29,58 @@ function ChatSidebar({
   onNewChat: () => void;
   onDeleteChat: (chatId: string) => void;
 }) {
+  const [isHovered, setIsHovered] = useState(false);
+
   return (
-    <div className="w-80 bg-gray-50 dark:bg-gray-800 border-r dark:border-gray-700 p-4 flex flex-col">
+    <div
+      className={`flex-shrink-0 transition-all duration-300 ease-in-out ${
+        isHovered ? "w-80" : "w-20"
+      } bg-gray-50 dark:bg-gray-800 border-r dark:border-gray-700 p-4 flex flex-col`}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold dark:text-gray-100">Recent Chats</h2>
+        <h2
+          className={`text-lg font-semibold dark:text-gray-100 truncate ${
+            !isHovered && "sr-only"
+          }`}
+        >
+          Recent Chats
+        </h2>
         <button
           onClick={onNewChat}
           className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 dark:text-gray-100"
+          title="New Chat"
         >
-          New Chat
+          <PlusSquare size={20} />
         </button>
       </div>
       <ul className="space-y-2">
         {chats.map((chat) => (
-          <li key={chat.id} className="flex items-center justify-between">
+          <li key={chat.id} className="flex items-center group">
             <button
               onClick={() => onSelectChat(chat.id)}
-              className={`block w-full text-left p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-sm dark:text-gray-200 ${
-                chat.id === currentChatId ? "bg-gray-200 dark:bg-gray-700 font-semibold" : ""
+              className={`flex-grow text-left p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-sm dark:text-gray-200 truncate ${
+                chat.id === currentChatId
+                  ? "bg-gray-200 dark:bg-gray-700 font-semibold"
+                  : ""
               }`}
+              title={chat.title}
             >
-              {chat.title}
+              {isHovered ? (
+                chat.title
+              ) : (
+                <div className="flex justify-center">
+                  <MessageSquare size={18} />
+                </div>
+              )}
             </button>
             <button
               onClick={() => onDeleteChat(chat.id)}
-              className="p-2 text-gray-500 hover:text-red-600 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700"
+              className={`flex-shrink-0 p-2 text-gray-500 hover:text-red-600 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 ml-auto ${
+                isHovered ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+              }`}
+              title="Delete Chat"
             >
               <Trash2 size={16} />
             </button>
@@ -293,7 +320,7 @@ export function ChatPage() {
         <div className="flex-grow p-4 overflow-y-auto">
           <div className="max-w-4xl mx-auto w-full">
             {messages.length > 0 ? (
-              <div className="space-y-6">
+              <div className="space-y-8">
                 {messages.map((msg, index) => (
                   <div
                     key={index}
@@ -302,10 +329,10 @@ export function ChatPage() {
                     }`}
                   >
                     <div
-                      className={`p-4 rounded-lg shadow-md ${
+                      className={`p-3 rounded-lg ${
                         msg.role === "user"
-                          ? "bg-blue-500 text-white max-w-lg"
-                          : "bg-gray-200 dark:bg-gray-700 max-w-4xl"
+                          ? "bg-blue-600 text-white max-w-xl"
+                          : "bg-gray-100 dark:bg-gray-800 w-full"
                       }`}
                     >
                       {msg.role === "model" ? (
@@ -334,7 +361,7 @@ export function ChatPage() {
         <div className="p-4 border-t dark:border-gray-700">
           <div className="max-w-4xl mx-auto w-full">
             <div className="relative">
-              {showRealmSuggestions && !chatId && (
+              {showRealmSuggestions && (
                 <RealmSuggestionMenu
                   realms={realms}
                   onSelectRealm={handleSelectRealm}
