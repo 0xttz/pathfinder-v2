@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.api import realms, chats, reflections, texts
+from backend.api import realms, chats, reflections, texts, content_sources, advanced_synthesis
 
 app = FastAPI(
     title="Pathfinder API",
@@ -29,6 +29,8 @@ app.include_router(realms.router)
 app.include_router(chats.router)
 app.include_router(reflections.router)
 app.include_router(texts.router)
+app.include_router(content_sources.router)
+app.include_router(advanced_synthesis.router)
 
 @app.get("/")
 async def root():

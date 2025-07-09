@@ -5,10 +5,13 @@ from pydantic import BaseModel
 import google.generativeai as genai
 from supabase import Client
 import logging
+from datetime import datetime
 
 from backend.db.supabase import supabase_client, get_db
 from backend.models.schemas import Text, TextCreate, TextUpdate, SynthesisRequest, SynthesisResponse
 from backend.core.config import settings
+from backend.services.synthesis_engine import AdvancedSynthesisEngine
+from backend.models.schemas import ContentSource, SourceType
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -67,6 +70,58 @@ async def delete_text(text_id: str):
     if not response.data:
         raise HTTPException(status_code=404, detail="Text not found")
     return 
+
+# --- New Helper Function ---
+async def _get_or_create_content_source_from_text(
+    text_id: str,
+    realm_id: str,
+    db: Client = Depends(get_db)
+) -> str:
+    """
+    Checks for an existing content source for a text, creates one if it doesn't exist,
+    and ensures it's linked to the correct realm.
+    """
+    # 1. Fetch text details
+    text_res = db.table("texts").select("id, title, content, created_at").eq("id", text_id).single().execute()
+    if not text_res.data:
+        raise HTTPException(status_code=404, detail=f"Text with id {text_id} not found.")
+    text_data = text_res.data
+
+    # 2. Check if a content source already exists for this text
+    existing_source_res = db.table("content_sources").select("id, realm_id").eq("metadata->>original_text_id", text_id).maybe_single().execute()
+    
+    if existing_source_res.data:
+        source_id = existing_source_res.data['id']
+        # If it exists but isn't linked to a realm, link it now.
+        if existing_source_res.data.get('realm_id') is None:
+            db.table("content_sources").update({"realm_id": realm_id}).eq("id", source_id).execute()
+            logger.info(f"Linked existing content source {source_id} to realm {realm_id}")
+        return source_id
+
+    # 3. If not, create a new content source
+    new_source_id = str(uuid.uuid4())
+    new_source = {
+        "id": new_source_id,
+        "realm_id": realm_id,
+        "source_type": SourceType.TEXT.value,
+        "title": text_data["title"],
+        "content": text_data["content"],
+        "metadata": {
+            "original_text_id": str(text_data["id"]),
+            "migrated_at": datetime.utcnow().isoformat()
+        },
+        "weight": 1.0,
+        "created_at": text_data["created_at"]
+    }
+
+    try:
+        db.table("content_sources").insert(new_source).execute()
+        logger.info(f"Created new content source {new_source_id} from text {text_id} for realm {realm_id}")
+        return new_source_id
+    except Exception as e:
+        logger.error(f"Failed to create content source from text {text_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create content source for synthesis.")
+
 
 # --- Logic moved from synthesis.py ---
 
@@ -133,26 +188,16 @@ async def synthesize_text_to_realm(text_id: str, req: SynthesisRequest, db: Clie
     ---
     
     Now, augment and refine this profile using the following new text.
-    Create a concise system prompt that provides BACKGROUND CONTEXT for an AI assistant.
+    Create a concise background profile that captures key traits, goals, preferences, and relevant context about the user.
     
-    IMPORTANT GUIDELINES:
-    - Write instructions for the AI on how to use this information as context
-    - The AI should NOT mention or recite this information unless directly relevant
-    - Focus on key traits, goals, and preferences that inform better responses
-    - Include instructions to be natural, helpful, and appropriately brief
-    - Avoid overly complimentary language in the prompt itself
-    
-    Use this format:
-    "You are an AI assistant helping [user description]. Use the following as background context to inform your responses, but only mention specific details when directly relevant:
-    
-    [Background context about the user]
-    
-    Be natural, helpful, and appropriately brief in your responses. Don't recite this information unless it's specifically relevant to the user's question."
+    Focus on factual information that would help an AI assistant provide better, more contextually relevant responses.
+    Write this as background information about the user, not as instructions.
+    Keep it concise and avoid overly complimentary language.
 
     New Text:
     {text_content}
     
-    Updated Synthesized Prompt:
+    Updated Profile:
     """
     logger.info(f"Sending synthesis prompt to Gemini for text '{text_id}' into realm '{realm_name}'.")
     model = genai.GenerativeModel('gemini-2.5-flash')
@@ -173,5 +218,44 @@ async def synthesize_text_to_realm(text_id: str, req: SynthesisRequest, db: Clie
         raise HTTPException(status_code=500, detail="Failed to update realm with synthesized prompt.")
     
     logger.info(f"Successfully updated realm {realm_id}.")
+        
+    return SynthesisResponse(synthesized_prompt=synthesized_prompt)
+
+@router.post("/texts/{text_id}/synthesize/advanced", response_model=SynthesisResponse)
+async def synthesize_text_to_realm_advanced(text_id: str, req: SynthesisRequest, db: Client = Depends(get_db)):
+    """
+    Performs advanced synthesis of a text into a realm's system prompt using the multi-stage engine.
+    """
+    realm_id = req.realm_id
+    logger.info(f"Starting ADVANCED synthesis for text_id: {text_id} into realm_id: {realm_id}")
+
+    # 1. Get or create a content source from the text
+    content_source_id = await _get_or_create_content_source_from_text(text_id, realm_id, db)
+
+    # 2. Instantiate the synthesis engine
+    synthesis_engine = AdvancedSynthesisEngine(db)
+
+    # 3. Run the full synthesis process
+    logger.info(f"Running full synthesis for realm {realm_id} using content source {content_source_id}")
+    try:
+        # The engine will fetch all sources for the realm, including the one we just made
+        synthesized_prompt, _ = await synthesis_engine.run_full_synthesis(
+            realm_id=realm_id, 
+            content_source_ids=[content_source_id] # Pass the specific source to ensure it's prioritized
+        )
+        logger.info(f"Received advanced synthesized prompt for realm {realm_id}:\\n{synthesized_prompt}")
+    except Exception as e:
+        logger.error(f"Error during advanced synthesis engine call: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to run advanced synthesis: {e}")
+
+    # 4. Update the realm's system_prompt
+    logger.info(f"Updating realm {realm_id} with new advanced system prompt.")
+    update_res = db.from_("realms").update({"system_prompt": synthesized_prompt}).eq("id", realm_id).execute()
+
+    if not update_res.data:
+        logger.error(f"Failed to update realm {realm_id} with advanced prompt. Response: {update_res}")
+        raise HTTPException(status_code=500, detail="Failed to update realm.")
+    
+    logger.info(f"Successfully updated realm {realm_id} with advanced prompt.")
         
     return SynthesisResponse(synthesized_prompt=synthesized_prompt) 

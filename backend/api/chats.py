@@ -82,8 +82,9 @@ class ChatRequest(BaseModel):
     message: str
     chat_id: Optional[str] = None
     realm_id: Optional[str] = None
+    text_id: Optional[str] = None
 
-async def gemini_llm_streamer(message: str, chat_id: str, realm_id: Optional[str] = None):
+async def gemini_llm_streamer(message: str, chat_id: str, realm_id: Optional[str] = None, text_id: Optional[str] = None):
     """Streams a response from the Gemini API and saves messages."""
     # 1. Fetch chat history
     messages_res = supabase_client.from_("messages").select("role, content").eq("chat_id", chat_id).order("created_at").execute()
@@ -107,15 +108,42 @@ async def gemini_llm_streamer(message: str, chat_id: str, realm_id: Optional[str
     history.append({"role": "user", "parts": [message]})
 
     system_prompt = None
-    if realm_id:
+    
+    # Handle text document context
+    if text_id:
+        text_res = supabase_client.from_("texts").select("title, content").eq("id", text_id).single().execute()
+        if text_res.data:
+            text_title = text_res.data["title"]
+            text_content = text_res.data["content"]
+            system_prompt = f"""You are a helpful AI assistant. The user has referenced a text document titled "{text_title}". Use this document as context for your response:
+
+Document: {text_title}
+---
+{text_content}
+---
+
+Provide helpful, contextually relevant responses based on this document. You can analyze, summarize, extract insights, answer questions about it, or help the user understand specific parts. Be natural and conversational in your responses."""
+    
+    # Handle realm context (realm takes precedence if both are provided)
+    elif realm_id:
         realm_res = supabase_client.from_("realms").select("system_prompt").eq("id", realm_id).single().execute()
         if realm_res.data and realm_res.data.get("system_prompt"):
-            system_prompt = realm_res.data["system_prompt"]
+            realm_content = realm_res.data["system_prompt"]
+            system_prompt = f"""You are a helpful AI assistant. Use the following background information about the user to provide more contextually relevant responses, but only mention specific details when directly relevant to their question:
+
+{realm_content}
+
+Be natural, helpful, and appropriately brief in your responses. Don't recite this background information unless it's specifically relevant to what the user is asking about."""
     else:
-        # If no realm is specified, try to use the default "About Me" realm's prompt
+        # If no realm or text is specified, try to use the default "About Me" realm's prompt
         default_realm_res = supabase_client.from_("realms").select("system_prompt").eq("name", "About Me").single().execute()
         if default_realm_res.data and default_realm_res.data.get("system_prompt"):
-            system_prompt = default_realm_res.data["system_prompt"]
+            realm_content = default_realm_res.data["system_prompt"]
+            system_prompt = f"""You are a helpful AI assistant. Use the following background information about the user to provide more contextually relevant responses, but only mention specific details when directly relevant to their question:
+
+{realm_content}
+
+Be natural, helpful, and appropriately brief in your responses. Don't recite this background information unless it's specifically relevant to what the user is asking about."""
 
     # KEEP THIS AS 2.5-flash !!!!
     model = genai.GenerativeModel('gemini-2.5-flash', system_instruction=system_prompt)
@@ -141,6 +169,7 @@ async def stream_chat(chat_request: ChatRequest):
     """Streams a chat response back to the client."""
     chat_id = chat_request.chat_id
     realm_id = chat_request.realm_id
+    text_id = chat_request.text_id
 
     if not chat_id:
         # Create a new chat session
@@ -158,7 +187,7 @@ async def stream_chat(chat_request: ChatRequest):
 
 
     response = StreamingResponse(
-        gemini_llm_streamer(chat_request.message, chat_id, realm_id), 
+        gemini_llm_streamer(chat_request.message, chat_id, realm_id, text_id), 
         media_type="text/event-stream"
     )
     response.headers["X-Chat-Id"] = chat_id
