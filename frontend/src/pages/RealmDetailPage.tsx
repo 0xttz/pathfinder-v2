@@ -1,13 +1,22 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { Save, Trash2, Wand2, Sparkles, Archive } from "lucide-react";
+import { Save, Trash2, ArrowLeft, Wand2, Sparkles, Archive } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
-import type { Realm } from "./RealmsPage";
 import UserProfile from "../components/UserProfile";
+import { DiffViewerModal } from "../components/DiffViewerModal";
+
+interface Realm {
+  id: string;
+  name: string;
+  system_prompt: string;
+  is_default?: boolean;
+}
 
 interface Reflection {
   id: string;
+  realm_id: string;
   question: string;
   answer: string | null;
+  created_at: string;
 }
 
 export function RealmDetailPage() {
@@ -20,6 +29,8 @@ export function RealmDetailPage() {
   const [reflections, setReflections] = useState<Reflection[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSynthesizing, setIsSynthesizing] = useState(false);
+  const [isDiffModalOpen, setIsDiffModalOpen] = useState(false);
+  const [previousPrompt, setPreviousPrompt] = useState("");
 
   const fetchRealmAndReflections = useCallback(async () => {
     if (!realmId) return;
@@ -32,6 +43,7 @@ export function RealmDetailPage() {
       setRealm(realmData);
       setName(realmData.name);
       setSystemPrompt(realmData.system_prompt || "");
+      setPreviousPrompt(realmData.system_prompt || ""); // Store initial prompt
 
       // Fetch reflections
       const reflectionsResponse = await fetch(`http://localhost:8000/realms/${realmId}/reflections`);
@@ -89,16 +101,22 @@ export function RealmDetailPage() {
 
   const handleSynthesize = async () => {
     if (!realmId) return;
+    
+    setPreviousPrompt(systemPrompt); // Capture the prompt state right before synthesis
     setIsSynthesizing(true);
+
     try {
         const response = await fetch(`http://localhost:8000/realms/${realmId}/synthesize`, { method: 'POST' });
         if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.detail || 'Failed to synthesize');
         }
-        const updatedRealm = await response.json();
-        setSystemPrompt(updatedRealm.system_prompt);
-        alert("System prompt updated with synthesis!");
+        const synthesisResponse = await response.json();
+        const newPrompt = synthesisResponse.synthesized_prompt;
+        
+        setSystemPrompt(newPrompt);
+        setIsDiffModalOpen(true); // Open the diff modal instead of alerting
+        
     } catch (error) {
         console.error(error);
         alert(`Error synthesizing: ${(error as Error).message}`);
@@ -239,6 +257,12 @@ export function RealmDetailPage() {
           </div>
         </div>
       </div>
+      <DiffViewerModal
+        isOpen={isDiffModalOpen}
+        onClose={() => setIsDiffModalOpen(false)}
+        oldText={previousPrompt}
+        newText={systemPrompt}
+      />
     </div>
   );
 } 

@@ -4,6 +4,7 @@ import { MarkdownRenderer } from "../components/MarkdownRenderer";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import type { Realm } from "./RealmsPage"; // Assuming RealmsPage exports Realm interface
 import { RealmSuggestionMenu } from "../components/RealmSuggestionMenu";
+import { useLoading } from "../lib/LoadingContext";
 
 interface Chat {
   id: string;
@@ -95,7 +96,7 @@ export function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [chatId, setChatId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const { isLoading, setIsLoading } = useLoading();
   const [chats, setChats] = useState<Chat[]>([]);
   const [editingTitle, setEditingTitle] = useState(false);
   const [realms, setRealms] = useState<Realm[]>([]);
@@ -220,7 +221,7 @@ export function ChatPage() {
       requestBody.realm_id = selectedRealmId;
     }
 
-    const response = await fetch("http://localhost:8000/llm/chat/stream", {
+    const response = await fetch("http://localhost:8000/chats/stream", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(requestBody),

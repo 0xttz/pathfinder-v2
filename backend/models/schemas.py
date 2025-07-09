@@ -53,8 +53,25 @@ class Reflection(BaseModel):
     answer: Optional[str] = None
     created_at: datetime
 
+class ReflectionUpdate(BaseModel):
+    answer: Optional[str] = None
+
+class SynthesisRequest(BaseModel):
+    realm_id: str
+
 class Text(BaseModel):
     id: uuid.UUID
     title: str
     content: str
-    created_at: datetime 
+    created_at: datetime
+
+class TextCreate(BaseModel):
+    title: str
+    content: str
+
+class TextUpdate(BaseModel):
+    title: Optional[str] = None
+    content: Optional[str] = None
+
+class SynthesisResponse(BaseModel):
+    synthesized_prompt: str 
